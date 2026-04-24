@@ -1,0 +1,23 @@
+{
+  "app": "python3 app.py",
+  "watch": {
+    "include": ["**"],
+    "exclude": ["README.md", "cdk*.json", "requirements*.txt", "**/__pycache__", "**/*.pyc"]
+  },
+  "context": {
+    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
+    "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+
+    "account": "YOUR_AWS_ACCOUNT_ID",
+    "region": "us-east-1",
+    "vpc_id": "vpc-XXXXXXXXXXXXXXXXX",
+
+    "domain_name": "yourdomain.com",
+    "idp_subdomain": "test-idp",
+
+    "cognito_user_pool_id": "us-east-1_XXXXXXXXX",
+    "cognito_region": "us-east-1",
+    "cognito_hosted_domain": "yourapp.auth.us-east-1.amazoncognito.com"
+  }
+}

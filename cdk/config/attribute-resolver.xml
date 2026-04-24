@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AttributeResolver
+    xmlns="urn:mace:shibboleth:2.0:resolver"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="urn:mace:shibboleth:2.0:resolver
+        http://shibboleth.net/schema/idp/shibboleth-attribute-resolver.xsd">
+
+    <!--
+        Email attribute: the authenticated username (from htpasswd) is used as-is.
+        Test users in users.htpasswd must have email addresses as usernames,
+        e.g.:  user1@example.com:$2y$10$...
+        These email values must match UserInfo records in the backend DB.
+    -->
+    <AttributeDefinition id="email" xsi:type="PrincipalName">
+        <AttributeEncoder xsi:type="SAML2String"
+            name="email"
+            friendlyName="email"
+            encodeType="false" />
+    </AttributeDefinition>
+
+</AttributeResolver>

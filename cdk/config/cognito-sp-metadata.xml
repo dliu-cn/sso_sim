@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Cognito Service Provider metadata for Shibboleth.
+    __COGNITO_SP_ENTITY_ID__ and __COGNITO_SP_ACS_URL__ are substituted by startup.sh.
+-->
+<md:EntityDescriptor
+    xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+    entityID="__COGNITO_SP_ENTITY_ID__">
+
+    <md:SPSSODescriptor
+        AuthnRequestsSigned="false"
+        WantAssertionsSigned="false"
+        protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+
+        <md:AssertionConsumerService
+            Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+            Location="__COGNITO_SP_ACS_URL__"
+            index="1"/>
+
+    </md:SPSSODescriptor>
+
+</md:EntityDescriptor>
