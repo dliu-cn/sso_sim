@@ -43,6 +43,8 @@ sed -i "s|__COGNITO_SP_ACS_URL__|${COGNITO_SP_ACS_URL}|g"      "$CONF_DIR/cognit
 sed -i "s|__COGNITO_SP_ENTITY_ID__|${COGNITO_SP_ENTITY_ID}|g"  "$CONF_DIR/attribute-filter.xml"
 
 echo "--- [start-shibboleth] (Re)starting container..."
+# Ensure Jetty reads X-Forwarded-Proto: https from nginx (setup-shibboleth.sh may have run before this was added).
+echo 'etc/jetty-http-forwarded.xml' > /opt/shib-jetty-base/start.d-local/forwarded.ini
 docker rm -f shibboleth-idp 2>/dev/null || true
 mkdir -p /opt/shibboleth-idp/logs
 

@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <AttributeFilterPolicyGroup
     xmlns="urn:mace:shibboleth:2.0:afp"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="urn:mace:shibboleth:2.0:afp
-        http://shibboleth.net/schema/idp/shibboleth-attribute-filter.xsd">
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
     <!--
         Release email to Cognito SP.

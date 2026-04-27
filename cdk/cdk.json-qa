@@ -1,0 +1,23 @@
+{
+  "app": "python3 app.py",
+  "watch": {
+    "include": ["**"],
+    "exclude": ["README.md", "cdk*.json", "requirements*.txt", "**/__pycache__", "**/*.pyc"]
+  },
+  "context": {
+    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
+    "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+
+    "account": "623586450996",
+    "region": "us-east-1",
+    "vpc_id": "vpc-0e01bee8369c59845",
+
+    "domain_name": "trialpro.ai",
+    "idp_subdomain": "ssosim-qa",
+
+    "cognito_user_pool_id": "us-east-1_ohhKRMdJp",
+    "cognito_region": "us-east-1",
+    "cognito_hosted_domain": "upsiteqa.auth.us-east-1.amazoncognito.com"
+  }
+}

@@ -79,5 +79,8 @@ chmod -R a+rwX "$JETTY_START_D"
 rm -f "$JETTY_START_D/ssl.ini"
 rm -f "$JETTY_START_D/backchannel.ini"
 rm -f "$JETTY_START_D/https.ini"
+# Trust X-Forwarded-Proto: https from nginx so Shibboleth sees HTTPS scheme.
+# jetty-http-forwarded.xml ships with Jetty 9.3 and adds ForwardedRequestCustomizer.
+echo 'etc/jetty-http-forwarded.xml' > "$JETTY_START_D/forwarded.ini"
 
 echo "--- [setup-shibboleth] Done."

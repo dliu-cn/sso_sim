@@ -2,8 +2,11 @@
 <AttributeResolver
     xmlns="urn:mace:shibboleth:2.0:resolver"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="urn:mace:shibboleth:2.0:resolver
-        http://shibboleth.net/schema/idp/shibboleth-attribute-resolver.xsd">
+    xmlns:ad="urn:mace:shibboleth:2.0:resolver:ad"
+    xmlns:enc="urn:mace:shibboleth:2.0:attribute:encoder"
+    xsi:schemaLocation="urn:mace:shibboleth:2.0:resolver http://shibboleth.net/schema/idp/shibboleth-attribute-resolver.xsd
+                        urn:mace:shibboleth:2.0:resolver:ad http://shibboleth.net/schema/idp/shibboleth-attribute-resolver-ad.xsd
+                        urn:mace:shibboleth:2.0:attribute:encoder http://shibboleth.net/schema/idp/shibboleth-attribute-encoder.xsd">
 
     <!--
         Email attribute: the authenticated username (from htpasswd) is used as-is.
@@ -11,8 +14,8 @@
         e.g.:  user1@example.com:$2y$10$...
         These email values must match UserInfo records in the backend DB.
     -->
-    <AttributeDefinition id="email" xsi:type="PrincipalName">
-        <AttributeEncoder xsi:type="SAML2String"
+    <AttributeDefinition id="email" xsi:type="ad:PrincipalName">
+        <AttributeEncoder xsi:type="enc:SAML2String"
             name="email"
             friendlyName="email"
             encodeType="false" />
