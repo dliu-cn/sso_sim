@@ -1,16 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<AttributeFilterPolicyGroup
+<AttributeFilterPolicyGroup id="ShibbolethFilterPolicy"
     xmlns="urn:mace:shibboleth:2.0:afp"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="urn:mace:shibboleth:2.0:afp http://shibboleth.net/schema/idp/shibboleth-afp.xsd">
 
-    <!--
-        Release email to Cognito SP.
-        __COGNITO_SP_ENTITY_ID__ is substituted by startup.sh.
-    -->
-    <AttributeFilterPolicy id="ReleaseToCognito">
-        <PolicyRequirementRule xsi:type="Requester"
-            value="__COGNITO_SP_ENTITY_ID__" />
-
+    <!-- Release email to all SPs (single-SP test IdP). -->
+    <AttributeFilterPolicy id="ReleaseEmail">
+        <PolicyRequirementRule xsi:type="ANY" />
         <AttributeRule attributeID="email" permitAny="true" />
     </AttributeFilterPolicy>
 
