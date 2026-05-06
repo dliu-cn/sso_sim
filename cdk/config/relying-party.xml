@@ -26,10 +26,15 @@
                 <ref bean="SAML1.ArtifactResolution" />
                 <!-- Disable assertion/NameID encryption: SP metadata has no key descriptor. -->
                 <!-- Disable attribute-release consent: test IdP should authenticate silently. -->
+                <!-- forceAuthn=true: always require fresh credentials for every Cognito request. -->
+                <!-- Without this, Shibboleth reuses its 8-hour session after Cognito logout,    -->
+                <!-- silently logging in the previous user even though the Cognito session is     -->
+                <!-- gone. With it, Shibboleth always shows the login form when Cognito asks.    -->
                 <bean parent="SAML2.SSO"
                     p:encryptAssertions="false"
                     p:encryptNameIDs="false"
-                    p:nameIDFormatPrecedence="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress" />
+                    p:nameIDFormatPrecedence="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+                    p:forceAuthn="true" />
                 <ref bean="SAML2.ECP" />
                 <ref bean="SAML2.Logout" />
                 <ref bean="SAML2.AttributeQuery" />

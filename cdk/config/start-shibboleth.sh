@@ -39,6 +39,8 @@ cp "$STAGING_DIR/saml-nameid.xml"                          "$CONF_DIR/saml-namei
 cp "$STAGING_DIR/authn/password-authn-config.xml"         "$CONF_DIR/authn/password-authn-config.xml"
 cp "$STAGING_DIR/authn/jaas.config"                        "$CONF_DIR/authn/jaas.config"
 cp "$STAGING_DIR/authn/users.properties"                   "$CONF_DIR/authn/users.properties"
+mkdir -p /opt/shibboleth-idp/views
+cp "$STAGING_DIR/views/login.vm"                           /opt/shibboleth-idp/views/login.vm
 
 echo "--- [start-shibboleth] Substituting placeholders..."
 sed -i "s|__IDP_HOSTNAME__|${IDP_HOSTNAME}|g"                  "$CONF_DIR/idp.properties"
@@ -65,6 +67,7 @@ docker run -d \
     -v "/opt/shibboleth-idp/metadata:/opt/shibboleth-idp/metadata" \
     -v "/opt/shib-jetty-base/start.d-local:/opt/shib-jetty-base/start.d" \
     -v "/opt/shibboleth-idp/logs:/opt/shibboleth-idp/logs" \
+    -v "/opt/shibboleth-idp/views/login.vm:/opt/shibboleth-idp/views/login.vm" \
     unicon/shibboleth-idp:latest
 
 echo "--- [start-shibboleth] Done. Container starting..."

@@ -21,6 +21,16 @@
 ##
 #set ($rpContext = $profileRequestContext.getSubcontext('net.shibboleth.idp.profile.context.RelyingPartyContext'))
 #set ($username = $authenticationContext.getSubcontext('net.shibboleth.idp.authn.context.UsernamePasswordContext', true).getUsername())
+##
+## Populate $username from SAML AuthnRequest Subject/NameID when Cognito passes login_hint.
+## Cognito forwards login_hint as the Subject NameID in the SAML AuthnRequest it sends to the IdP.
+##
+#if (!$username)
+  #set ($_samlReq = $profileRequestContext.getInboundMessageContext().getMessage())
+  #if ($_samlReq && $_samlReq.getSubject() && $_samlReq.getSubject().getNameID())
+    #set ($username = $_samlReq.getSubject().getNameID().getValue())
+  #end
+#end
 #set ($passwordEnabled = false)
 #if (!$passwordPrincipals or $passwordPrincipals.isEmpty() or $authenticationContext.isAcceptable($passwordPrincipals))
   #set ($passwordEnabled = true)
