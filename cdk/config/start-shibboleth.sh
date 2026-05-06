@@ -42,11 +42,42 @@ cp "$STAGING_DIR/authn/users.properties"                   "$CONF_DIR/authn/user
 mkdir -p /opt/shibboleth-idp/views
 cp "$STAGING_DIR/views/login.vm"                           /opt/shibboleth-idp/views/login.vm
 
+echo "--- [start-shibboleth] Regenerating idp-metadata.xml..."
+CREDS_DIR=/opt/shibboleth-idp/credentials
+METADATA_DIR=/opt/shibboleth-idp/metadata
+mkdir -p "$METADATA_DIR"
+CERT_DATA=$(sed '/^-----/d' "$CREDS_DIR/idp-signing.crt" | tr -d '\n')
+cat > "$METADATA_DIR/idp-metadata.xml" << METADATA_EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+    xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
+    entityID="https://${IDP_HOSTNAME}/idp/shibboleth">
+  <md:IDPSSODescriptor
+      protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol urn:oasis:names:tc:SAML:1.1:protocol urn:mace:shibboleth:1.0">
+    <md:KeyDescriptor use="signing">
+      <ds:KeyInfo><ds:X509Data><ds:X509Certificate>${CERT_DATA}</ds:X509Certificate></ds:X509Data></ds:KeyInfo>
+    </md:KeyDescriptor>
+    <md:NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:transient</md:NameIDFormat>
+    <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+        Location="https://${IDP_HOSTNAME}/idp/profile/SAML2/POST/SSO"/>
+    <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        Location="https://${IDP_HOSTNAME}/idp/profile/SAML2/Redirect/SSO"/>
+    <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        Location="https://${IDP_HOSTNAME}/idp/profile/SAML2/Redirect/SLO"/>
+    <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+        Location="https://${IDP_HOSTNAME}/idp/profile/SAML2/POST/SLO"/>
+  </md:IDPSSODescriptor>
+</md:EntityDescriptor>
+METADATA_EOF
+
 echo "--- [start-shibboleth] Substituting placeholders..."
-sed -i "s|__IDP_HOSTNAME__|${IDP_HOSTNAME}|g"                  "$CONF_DIR/idp.properties"
-sed -i "s|__COGNITO_SP_ENTITY_ID__|${COGNITO_SP_ENTITY_ID}|g"  "$CONF_DIR/cognito-sp-metadata.xml"
-sed -i "s|__COGNITO_SP_ACS_URL__|${COGNITO_SP_ACS_URL}|g"      "$CONF_DIR/cognito-sp-metadata.xml"
-sed -i "s|__COGNITO_SP_ENTITY_ID__|${COGNITO_SP_ENTITY_ID}|g"  "$CONF_DIR/attribute-filter.xml"
+# Derive Cognito SLO URL from ACS URL: .../saml2/idpresponse -> .../saml2/logout
+COGNITO_SP_SLO_URL="${COGNITO_SP_ACS_URL/idpresponse/logout}"
+sed -i "s|__IDP_HOSTNAME__|${IDP_HOSTNAME}|g"                "$CONF_DIR/idp.properties"
+sed -i "s|__COGNITO_SP_ENTITY_ID__|${COGNITO_SP_ENTITY_ID}|g" "$CONF_DIR/cognito-sp-metadata.xml"
+sed -i "s|__COGNITO_SP_ACS_URL__|${COGNITO_SP_ACS_URL}|g"     "$CONF_DIR/cognito-sp-metadata.xml"
+sed -i "s|__COGNITO_SP_SLO_URL__|${COGNITO_SP_SLO_URL}|g"     "$CONF_DIR/cognito-sp-metadata.xml"
+sed -i "s|__COGNITO_SP_ENTITY_ID__|${COGNITO_SP_ENTITY_ID}|g" "$CONF_DIR/attribute-filter.xml"
 
 echo "--- [start-shibboleth] (Re)starting container..."
 # Ensure Jetty reads X-Forwarded-Proto: https from nginx.

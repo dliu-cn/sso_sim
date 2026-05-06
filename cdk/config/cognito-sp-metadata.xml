@@ -12,6 +12,11 @@
         WantAssertionsSigned="false"
         protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
 
+        <!-- Cognito SLO endpoint — where Shibboleth sends the LogoutResponse after processing logout -->
+        <md:SingleLogoutService
+            Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+            Location="__COGNITO_SP_SLO_URL__"/>
+
         <md:AssertionConsumerService
             Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
             Location="__COGNITO_SP_ACS_URL__"

@@ -64,6 +64,10 @@ if [ ! -f "$METADATA_DIR/idp-metadata.xml" ]; then
         Location="https://${IDP_HOSTNAME}/idp/profile/SAML2/POST/SSO"/>
     <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
         Location="https://${IDP_HOSTNAME}/idp/profile/SAML2/Redirect/SSO"/>
+    <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        Location="https://${IDP_HOSTNAME}/idp/profile/SAML2/Redirect/SLO"/>
+    <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+        Location="https://${IDP_HOSTNAME}/idp/profile/SAML2/POST/SLO"/>
   </md:IDPSSODescriptor>
 </md:EntityDescriptor>
 EOF
