@@ -12,9 +12,19 @@
         WantAssertionsSigned="false"
         protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
 
+        <!-- Cognito SP signing certificate — used to verify signed LogoutRequests from Cognito -->
+        <md:KeyDescriptor use="signing">
+            <ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+                <ds:X509Data>
+                    <ds:X509Certificate>MIICvTCCAaWgAwIBAgIJAJxcUJnFEbS8MA0GCSqGSIb3DQEBCwUAMB4xHDAaBgNVBAMME3VzLWVhc3QtMV9vaGhLUk1kSnAwHhcNMjYwNDI0MjI0OTE2WhcNMzYwNDI0MDkwMTE2WjAeMRwwGgYDVQQDDBN1cy1lYXN0LTFfb2hoS1JNZEpwMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsThuNY5Q76L3JQqyu4xiwqe7ZTuknVMm5ihXeUMmP3NW2FM4dy8dCG0hKv+WpdOwPRJiH13XJDZPD7ZANt33DApX93xCK8whTOhUYloggXL3m5s/gzWdS8SPvK8TrJwPlsyeNr8rUCXHSwSd6BNpJeXlY7VxIPF2R3AiToW0iUtgw52nB6Tg7HVgTFkeNlb4890qMbAA0NSEHvXnNssR32QguqtMigmOCywlBNqaWI19KY5QzvN5C8BevL0XFMg4VDI5orYQiwCKeftccVAVw295kJSVWFrJLE/YlyB4i+n9y5Qwi1KaJOonCsnwiJ9EUN1iiUR4KlFzW+ruElHZyQIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQBvrgb6r3ymMaVlGHcSifEyZMqDg1gVJTNWRwRg91AVfqWb8soAxOY7+EzqHKtB5754ntVsmuPJeJGJc80ywX2rrJYahIzMX2rDJWIyfH1MUMsC3NywxBrZ1lQP9DsYBVnv/iW1qEgbBUBHQ8X0pyeGNkXdgrnv1od3sGXn2sLF+8aJw8ylwac7GUCsaHUsyZv1nhx0mzX4mkxmXMUEK1DRV3WDHLcyMjD/+bNk2PRYfLgnARfJLnPVH6cwGsRQdr4fe36DutGP6ydv8ZzsfXJD0qNsFNdwt9nSw2k0Dr/f05SYjT2SMTm6yFjGQTlvAS73RfRpgoTuJUymqrIElie5</ds:X509Certificate>
+                </ds:X509Data>
+            </ds:KeyInfo>
+        </md:KeyDescriptor>
+
         <!-- Cognito SLO endpoint — where Shibboleth sends the LogoutResponse after processing logout -->
+        <!-- Cognito's /saml2/logout only accepts POST; HTTP-Redirect (GET) returns 400 Allow: POST -->
         <md:SingleLogoutService
-            Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+            Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
             Location="__COGNITO_SP_SLO_URL__"/>
 
         <md:AssertionConsumerService
