@@ -77,17 +77,16 @@ The IdP will be deployed at `https://{idp_subdomain}.{domain_name}` (default sub
 
 ### 2. Add test users
 
-Edit `cdk/config/users.htpasswd`. Usernames must be email addresses that match UserInfo records in the TrialPro backend DB.
+Edit `cdk/config/authn/users.properties`. This is the file Shibboleth uses for login authentication (via the Jetty JAAS `PropertyFileLoginModule`). Usernames must be email addresses that match UserInfo records in the TrialPro backend DB.
 
-```bash
-# Add a user (prompts for password)
-htpasswd -B cdk/config/users.htpasswd user@example.com
+Format: `email: password,role`
 
-# Create a new file with first user
-htpasswd -cB cdk/config/users.htpasswd user@example.com
+```
+john@unc-sim.edu: 1234,user
+jane@unc-sim.edu: 1234,user
 ```
 
-Pre-generated entries use password `TestPass1!` — replace them with real test user emails.
+> **Note:** `cdk/config/users.htpasswd` is used by nginx for unrelated HTTP basic auth paths and has **no effect** on who can log in via the Shibboleth login form. Editing it will not add or remove SSO test users.
 
 ### 3. Install dependencies and deploy
 
@@ -133,10 +132,13 @@ After `cdk deploy` completes, the following values are printed:
 3. Fill in:
    - **Provider name:** `SSOSim-qa` (this becomes the `identity_provider` param)
    - **Metadata document URL:** value of `IdpMetadataUrl` output
+   - **Sign-out flow:** Enable (required for SLO testing)
    - **IdP-initiated sign-in:** Off
-4. **Attribute mapping:** Cognito `email` → SAML attribute `email`
-5. In the App Client → **Login pages** tab → add `ShibbolethTestIdP` to Identity providers
-6. In the backend Organization record, set `ssoIdpName = ShibbolethTestIdP` and the test user's email domain
+4. **Attribute mapping:**
+   - Cognito `email` → SAML attribute `email`
+   - Cognito `custom:externalUserId` → SAML attribute `NAMEID`
+5. In the App Client → **Login pages** tab → add the provider to Identity providers, and add `http://localhost:3000/login` to Allowed sign-out URLs
+6. In the backend Organization record, set `ssoIdpName = SSOSim-qa` and the test user's email domain
 
 ---
 
@@ -172,14 +174,29 @@ nginx -t
 
 `cdk deploy` is safe to re-run at any time — it is idempotent and only updates what changed. For config-only changes it just syncs the new files to S3 and skips the EC2, security group, and Route 53 resources.
 
-**To update any config file (e.g. add a test user, add a Cognito IdP):**
+**To add or remove a test user:**
+
+```bash
+# 1. Edit cdk/config/authn/users.properties
+#    Format: email: password,role
+#    e.g.  newuser@unc-sim.edu: 1234,user
+
+# 2. Upload to S3
+aws s3 cp cdk/config/authn/users.properties s3://sso-sim-shibboleth-config-623586450996/config/authn/users.properties
+
+# 3. Connect to the EC2 and apply
+aws ssm start-session --target <InstanceId>
+# On the EC2:
+source /etc/shibboleth-env.sh
+bash /opt/shibboleth-config/start-shibboleth.sh
+```
+
+**To update any other config file (e.g. add a Cognito IdP):**
 
 ```bash
 # 1. Edit the file locally
-htpasswd -B cdk/config/users.htpasswd newuser@example.com
-
 # 2. Upload to S3
-aws s3 cp cdk/config/users.htpasswd s3://sso-sim-shibboleth-config-623586450996/config/users.htpasswd
+aws s3 cp cdk/config/<file> s3://sso-sim-shibboleth-config-623586450996/config/<file>
 # (or re-deploy everything: cd cdk && cdk deploy)
 
 # 3. Connect to the EC2 and apply
@@ -237,12 +254,14 @@ SSO-sim/
     │   └── shibboleth_idp_stack.py  # CDK stack — EC2, S3, Route53, Elastic IP
     └── config/                      # Shibboleth config — uploaded to S3 on deploy
         ├── authn/
-        │   └── password-authn-config.xml  # htpasswd authentication (overrides LDAP default)
-        ├── attribute-resolver.xml   # Defines email attribute from htpasswd username
+        │   ├── password-authn-config.xml  # Configures Shibboleth to use JAAS for password auth
+        │   ├── jaas.config                # Points JAAS to users.properties for login
+        │   └── users.properties           # ⬅ Test user accounts — format: email: password,role
+        ├── attribute-resolver.xml   # Defines email attribute from authenticated username
         ├── attribute-filter.xml     # Releases email to Cognito SP
         ├── cognito-sp-metadata.xml  # Cognito SP metadata (entity ID + ACS URL)
         ├── metadata-providers.xml   # Registers Cognito as Service Provider
-        ├── users.htpasswd           # Test users — email:bcrypt_hash
+        ├── users.htpasswd           # nginx HTTP basic auth — NOT used for Shibboleth login
         ├── nginx.conf               # nginx reverse proxy config
         ├── startup.sh               # EC2 user-data orchestrator — installs packages, calls the three scripts below
         ├── setup-shibboleth.sh      # One-time: generate/restore credentials from S3, configure Jetty
@@ -258,10 +277,14 @@ SSO-sim/
 |---|---|
 | IdP metadata URL returns 502 | Shibboleth still starting — wait 3–5 min after EC2 start, check `docker logs shibboleth-idp` |
 | Let's Encrypt cert fails | Ensure port 80 is open in the security group and DNS A record has propagated |
-| Login fails with wrong password | Regenerate htpasswd entry with `htpasswd -B`, upload to S3, run `start-shibboleth.sh` on EC2 |
+| Login fails with wrong password | Edit `cdk/config/authn/users.properties`, upload to S3, run `start-shibboleth.sh` on EC2 |
 | Cognito can't fetch IdP metadata | Ensure EC2 is fully started and `docker logs shibboleth-idp` shows no errors before saving in Cognito |
 | `cdk deploy` fails on domain_name | Set `domain_name` to a domain whose hosted zone exists in Route 53 |
 | EC2 startup log | `cat /var/log/shibboleth-startup.log` via SSM Session Manager |
+| SLO: Shibboleth returns 400 on LogoutRequest | Cognito signing cert missing from `cognito-sp-metadata.xml` — retrieve with `aws cognito-idp get-signing-certificate` and add as `KeyDescriptor use="signing"` |
+| SLO: Cognito returns 400 at `/saml2/logout?SAMLResponse=...` | Two possible causes: (1) SAMLResponse status is `UnknownPrincipal` — the container restarted after login, wiping the session; re-login and retry. (2) LogoutResponse sent via HTTP-Redirect (GET) instead of HTTP-POST — check `SingleLogoutService` binding in `cognito-sp-metadata.xml` |
+| SLO: Cognito receives LogoutResponse but doesn't redirect to `logout_uri` | Cognito has a stale Shibboleth signing cert cached — run `update-identity-provider` with the `MetadataURL` to force a re-fetch (see SLO section above) |
+| SLO: `logout_uri` not redirected | Ensure `logout_uri` is listed exactly in the App Client's Allowed sign-out URLs |
 
 ---
 
@@ -277,7 +300,7 @@ SSO-sim/
 |---|---|
 | **Provider name** | Choose a name, e.g. `SSOSim-qa` — this becomes the `identity_provider` param in the authorize URL |
 | **Identifiers** | Leave blank |
-| **Sign-out flow** | Leave unchecked |
+| **Sign-out flow** | **Enable** — required for SLO (logout propagation to Shibboleth) |
 | **IdP-initiated SAML sign-in** | Leave as "Require SP-initiated SAML assertions - Recommended" |
 | **Metadata document source** | Select **Metadata document endpoint URL** |
 | **Metadata document** | Value of the `IdpMetadataUrl` stack output, e.g. `https://ssosim-qa.trialpro.ai/idp/shibboleth` |
@@ -288,13 +311,77 @@ SSO-sim/
 | User pool attribute | SAML attribute |
 |---|---|
 | `email` | `email` |
+| `custom:externalUserId` | `NAMEID` |
 
 Click **Add identity provider**.
 
 ### Step 3 — Allow the IdP on the App Client
 
-**Console:** Applications → App clients → your client → **Login pages** tab → Edit → add the provider name (e.g. `SSOSim-qa`) to **Identity providers** → Save.
+**Console:** Applications → App clients → your client → **Login pages** tab → Edit:
+- Add the provider name (e.g. `SSOSim-qa`) to **Identity providers**
+- Add `http://localhost:3000/login` to **Allowed sign-out URLs** (required for SLO to redirect back to the app after logout)
 
 ### Step 4 — Configure the backend Organization record
 
 Set the Organization's `ssoIdpName` to match the provider name exactly (e.g. `SSOSim-qa`) and set the email domain for the test users.
+
+---
+
+## SLO (Single Logout) — How It Works and What Was Required
+
+Shibboleth SLO with Cognito required several non-obvious configuration steps. Documented here to avoid re-discovering them.
+
+### SLO Flow
+
+```
+App → GET /logout?client_id=...&logout_uri=http://localhost:3000/login
+  → Cognito clears session, sends signed SAMLRequest (LogoutRequest) to Shibboleth SLO endpoint
+  → Browser redirects: GET https://{idp}/idp/profile/SAML2/Redirect/SLO?SAMLRequest=...
+  → Shibboleth verifies signature, terminates session, sends SAMLResponse (LogoutResponse)
+  → Browser POSTs to: https://{cognito}/saml2/logout  (HTTP-POST binding — see below)
+  → Cognito verifies LogoutResponse, redirects browser to logout_uri
+```
+
+### Required Configuration
+
+**1. Cognito SP signing certificate in `cognito-sp-metadata.xml`**
+
+Cognito signs its LogoutRequests. Without the Cognito signing cert in the SP metadata, Shibboleth cannot verify the signature and rejects the request with 400. Retrieve the cert and add it as `KeyDescriptor use="signing"`:
+
+```bash
+aws cognito-idp get-signing-certificate --user-pool-id <pool-id> --region us-east-1
+```
+
+This cert is already configured in `cdk/config/cognito-sp-metadata.xml`.
+
+**2. HTTP-POST binding for the SP SLO endpoint**
+
+Cognito's `/saml2/logout` endpoint only accepts **POST** for incoming LogoutResponses. Using HTTP-Redirect (GET) returns `400 Allow: POST`. The `SingleLogoutService` in the SP metadata must specify `HTTP-POST` binding:
+
+```xml
+<md:SingleLogoutService
+    Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+    Location="https://{cognito}/saml2/logout"/>
+```
+
+This is already configured in `cdk/config/cognito-sp-metadata.xml`.
+
+**3. Shibboleth sessions are in-memory**
+
+Shibboleth stores sessions in memory. A container restart clears all sessions. If Shibboleth receives a LogoutRequest for a session it no longer knows about, it returns `UnknownPrincipal` in the LogoutResponse — Cognito then returns 400 instead of redirecting to `logout_uri`.
+
+**Rule:** After any container restart (e.g. after a config change), always re-login before testing SLO. The Cognito session from before the restart is stale anyway.
+
+**4. Cognito caches the Shibboleth signing cert**
+
+When you register the IdP in Cognito using a metadata URL, Cognito fetches and caches the Shibboleth signing cert. If the Shibboleth credentials are regenerated (e.g. on a fresh EC2), the cached cert becomes stale and Cognito silently fails to verify LogoutResponses (no redirect to `logout_uri`).
+
+Force a metadata refresh whenever Shibboleth credentials change:
+
+```bash
+aws cognito-idp update-identity-provider \
+  --user-pool-id <pool-id> \
+  --provider-name <provider-name> \
+  --provider-details '{"MetadataURL": "https://{idp}/idp/shibboleth", "IDPSignout": "true"}' \
+  --region us-east-1
+```
