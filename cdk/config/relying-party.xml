@@ -33,7 +33,7 @@
                 <bean parent="SAML2.SSO"
                     p:encryptAssertions="false"
                     p:encryptNameIDs="false"
-                    p:nameIDFormatPrecedence="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+                    p:nameIDFormatPrecedence="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"
                     p:forceAuthn="true" />
                 <ref bean="SAML2.ECP" />
                 <ref bean="SAML2.Logout" />

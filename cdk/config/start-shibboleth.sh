@@ -34,13 +34,16 @@ cp "$STAGING_DIR/attribute-resolver.xml"  "$CONF_DIR/attribute-resolver.xml"
 cp "$STAGING_DIR/metadata-providers.xml"  "$CONF_DIR/metadata-providers.xml"
 cp "$STAGING_DIR/cognito-sp-metadata.xml" "$CONF_DIR/cognito-sp-metadata.xml"
 cp "$STAGING_DIR/users.htpasswd"          "$CONF_DIR/users.htpasswd"
+cp "$STAGING_DIR/global.xml"                               "$CONF_DIR/global.xml"
 cp "$STAGING_DIR/relying-party.xml"                        "$CONF_DIR/relying-party.xml"
 cp "$STAGING_DIR/saml-nameid.xml"                          "$CONF_DIR/saml-nameid.xml"
 cp "$STAGING_DIR/authn/password-authn-config.xml"         "$CONF_DIR/authn/password-authn-config.xml"
 cp "$STAGING_DIR/authn/jaas.config"                        "$CONF_DIR/authn/jaas.config"
 cp "$STAGING_DIR/authn/users.properties"                   "$CONF_DIR/authn/users.properties"
-mkdir -p /opt/shibboleth-idp/views
+mkdir -p /opt/shibboleth-idp/views/logout
 cp "$STAGING_DIR/views/login.vm"                           /opt/shibboleth-idp/views/login.vm
+cp "$STAGING_DIR/views/logout.vm"                          /opt/shibboleth-idp/views/logout.vm
+cp "$STAGING_DIR/views/logout/propagate.vm"                /opt/shibboleth-idp/views/logout/propagate.vm
 
 echo "--- [start-shibboleth] Regenerating idp-metadata.xml..."
 CREDS_DIR=/opt/shibboleth-idp/credentials
@@ -99,6 +102,8 @@ docker run -d \
     -v "/opt/shib-jetty-base/start.d-local:/opt/shib-jetty-base/start.d" \
     -v "/opt/shibboleth-idp/logs:/opt/shibboleth-idp/logs" \
     -v "/opt/shibboleth-idp/views/login.vm:/opt/shibboleth-idp/views/login.vm" \
+    -v "/opt/shibboleth-idp/views/logout.vm:/opt/shibboleth-idp/views/logout.vm" \
+    -v "/opt/shibboleth-idp/views/logout:/opt/shibboleth-idp/views/logout" \
     unicon/shibboleth-idp:latest
 
 echo "--- [start-shibboleth] Done. Container starting..."

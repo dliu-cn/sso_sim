@@ -11,13 +11,16 @@
        default-init-method="initialize"
        default-destroy-method="destroy">
 
-    <!-- Emit the user's email address as the NameID (emailAddress format).
+    <!-- Emit the user's email address as the NameID using persistent format.
          Cognito maps NameID to userName which has a 128-char limit;
-         the default transient generator seals a UUID producing ~168 chars. -->
+         the default transient generator seals a UUID producing ~168 chars.
+         Format must be persistent: Cognito always sends persistent format in LogoutRequests,
+         and Shibboleth's SLO secondary index key includes the format, so a mismatch
+         (emailAddress in assertion vs persistent in LogoutRequest) causes SessionNotFound. -->
     <util:list id="shibboleth.SAML2NameIDGenerators">
         <bean parent="shibboleth.SAML2AttributeSourcedGenerator"
             p:omitQualifiers="true"
-            p:format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+            p:format="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"
             p:attributeSourceIds="#{ {'email'} }" />
         <ref bean="shibboleth.SAML2TransientGenerator" />
     </util:list>

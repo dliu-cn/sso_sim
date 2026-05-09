@@ -1,0 +1,87 @@
+##
+## Customized logout/propagate.vm for SSO-sim.
+##
+## Overrides system/views/logout/propagate.vm.
+##
+## Change from the Shibboleth default: the hidden iframe that triggers _eventId=proceed
+## (the SAML LogoutResponse step) is replaced with window.top.location.href so the
+## LogoutResponse form loads in the main browser context.  Without this, Cognito's
+## redirect to logout_uri loads inside the hidden iframe and the main window never moves.
+##
+#if ($logoutContext and !$logoutContext.getSessionMap().isEmpty())
+    <ol>
+        #foreach ($sp in $logoutContext.getSessionMap().keySet())
+            #set ($rpCtx = $multiRPContext.getRelyingPartyContextById($sp))
+            #if ($rpCtx)
+                #set ($rpUIContext = $rpCtx.getSubcontext("net.shibboleth.idp.ui.context.RelyingPartyUIContext"))
+            #end
+            #if ($rpUIContext and $rpUIContext.getServiceName())
+                <li id="result_$codecUtil.hex($sp.getBytes())" title="Logout pending">$htmlEncoder.encodeForHTML($rpUIContext.getServiceName())</li>
+            #else
+                <li id="result_$codecUtil.hex($sp.getBytes())" title="Logout pending">$htmlEncoder.encodeForHTML($sp)</li>
+            #end
+        #end
+    </ol>
+    <script src="$request.getContextPath()/js/jquery-3.3.1.min.js"></script>
+    <script>
+    <!--
+        function check_status() {
+            for (flag in this) {
+                if (!this[flag]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        var sessionTracker = new Object();
+        #foreach ($sp in $logoutContext.getSessionMap().keySet())
+            spTracker = new Object();
+            spTracker.status = check_status;
+            sessionTracker['result_$codecUtil.hex($sp.getBytes())'] = spTracker;
+        #end
+
+        function onLoad(src, target, trackerId, sessionKey) {
+            try {
+                var content = src.contents().text();
+                if (content && jQuery.parseJSON(content).result == "Success") {
+                    sessionTracker[trackerId]['_' + sessionKey] = true;
+                } else {
+                    sessionTracker[trackerId]['_' + sessionKey] = false;
+                }
+            } catch (e) {
+                sessionTracker[trackerId]['_' + sessionKey] = false;
+            }
+            target.removeClass("success failure");
+            if (sessionTracker[trackerId].status()) {
+                target.addClass("success");
+                target.prop("title", "Successful logout");
+            } else {
+                target.addClass("failure");
+                target.prop("title", "Failed logout")
+            }
+            if (typeof(Storage) !== "undefined" ) {
+                var url = sessionStorage.getItem(sessionKey);
+                if (url != null) {
+                    sessionStorage.removeItem(sessionKey);
+                    setTimeout(function() { src.prop("src", url) }, 1500);
+                }
+            }
+        }
+    // -->
+    </script>
+    #foreach ($entry in $logoutContext.getKeyedSessionMap().entrySet())
+        #if ($flowSelector.apply($entry.getValue()))
+            #set ($trackerId = "result_$codecUtil.hex($entry.getValue().getId().getBytes())")
+            <iframe id="sender_$codecUtil.hex($entry.getKey().getBytes())"
+                src="$request.contextPath/profile/PropagateLogout?SessionKey=$urlEncoder.encode($entry.getKey())"
+                style="display:none" onload="onLoad($(this), $('#$trackerId'), '$trackerId', '$entry.getKey()')"></iframe>
+        #end
+    #end
+#end
+
+<!-- If SAML logout, navigate the top-level window to send the LogoutResponse.
+     The default uses a hidden iframe, which traps Cognito's redirect inside it. -->
+#if ( $profileRequestContext.getProfileId().contains("saml2/logout") )
+    <script>window.top.location.href = "$flowExecutionUrl&_eventId=proceed";</script>
+#end

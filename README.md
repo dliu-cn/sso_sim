@@ -282,7 +282,7 @@ SSO-sim/
 | `cdk deploy` fails on domain_name | Set `domain_name` to a domain whose hosted zone exists in Route 53 |
 | EC2 startup log | `cat /var/log/shibboleth-startup.log` via SSM Session Manager |
 | SLO: Shibboleth returns 400 on LogoutRequest | Cognito signing cert missing from `cognito-sp-metadata.xml` — retrieve with `aws cognito-idp get-signing-certificate` and add as `KeyDescriptor use="signing"` |
-| SLO: Cognito returns 400 at `/saml2/logout?SAMLResponse=...` | Two possible causes: (1) SAMLResponse status is `UnknownPrincipal` — the container restarted after login, wiping the session; re-login and retry. (2) LogoutResponse sent via HTTP-Redirect (GET) instead of HTTP-POST — check `SingleLogoutService` binding in `cognito-sp-metadata.xml` |
+| SLO: Cognito returns 400 at `/saml2/logout?SAMLResponse=...` | SAMLResponse status is `UnknownPrincipal` (secondary index empty) or LogoutResponse was sent via HTTP-Redirect instead of HTTP-POST. Check: (1) `global.xml` defines `shibboleth.ServerSideStorage` and `idp.properties` sets `idp.session.StorageService = shibboleth.ServerSideStorage`; (2) `SingleLogoutService` binding in `cognito-sp-metadata.xml` is `HTTP-POST`; (3) container was restarted after login — re-login and retry |
 | SLO: Cognito receives LogoutResponse but doesn't redirect to `logout_uri` | Cognito has a stale Shibboleth signing cert cached — run `update-identity-provider` with the `MetadataURL` to force a re-fetch (see SLO section above) |
 | SLO: `logout_uri` not redirected | Ensure `logout_uri` is listed exactly in the App Client's Allowed sign-out URLs |
 
@@ -366,9 +366,44 @@ Cognito's `/saml2/logout` endpoint only accepts **POST** for incoming LogoutResp
 
 This is already configured in `cdk/config/cognito-sp-metadata.xml`.
 
-**3. Shibboleth sessions are in-memory**
+**3. Server-side session storage — `global.xml` + `idp.session.StorageService`**
 
-Shibboleth stores sessions in memory. A container restart clears all sessions. If Shibboleth receives a LogoutRequest for a session it no longer knows about, it returns `UnknownPrincipal` in the LogoutResponse — Cognito then returns 400 instead of redirecting to `logout_uri`.
+Shibboleth 3.4.x in the Docker image defaults to **client-side (cookie-based) session storage** (`isServerSide() = false`). With client-side storage, `StorageBackedIdPSession.addSPSession()` silently fails, the secondary index is never populated, and every SLO request returns `UnknownPrincipal`.
+
+The fix is `cdk/config/global.xml`, which defines an explicit `MemoryStorageService` bean (`shibboleth.ServerSideStorage`), and `idp.properties` which points `idp.session.StorageService` to it:
+
+```xml
+<!-- global.xml -->
+<bean id="shibboleth.ServerSideStorage"
+    class="org.opensaml.storage.impl.MemoryStorageService"
+    p:cleanupInterval="PT10M" />
+```
+
+```properties
+# idp.properties
+idp.session.StorageService = shibboleth.ServerSideStorage
+```
+
+Overriding the system bean `shibboleth.StorageService` in-place (same ID) does **not** work — Shibboleth protects system bean definitions from user-space redefinition. A distinct name that the session manager can look up across all loaded beans is required.
+
+**4. SP session tracking and secondary index**
+
+SLO in Shibboleth 3.x uses the secondary index to find the IdP session — there is no cookie-based fallback in the SLO profile. The following `idp.properties` settings are required:
+
+```properties
+idp.session.trackSPSessions = true     # writes SP session records at assertion issuance
+idp.session.secondaryServiceIndex = true  # maintains the SP+NameID → session ID index
+```
+
+Both are set and confirmed working: login produces `Maintaining secondary index for service ID ... and key {email}` in the log, and logout finds it with `Performing secondary lookup ... → LogoutRequest matches IdP session`.
+
+**5. NameID format must be `persistent` end-to-end**
+
+Cognito always sends `persistent` format in LogoutRequests. The secondary index key includes the NameID format; a mismatch causes `SessionNotFound`. The NameID generator in `saml-nameid.xml` is configured to emit `persistent` format to match.
+
+**6. Shibboleth sessions are in-memory**
+
+`MemoryStorageService` stores sessions in process memory. A container restart clears all sessions. If Shibboleth receives a LogoutRequest for a session it no longer knows about, it returns `UnknownPrincipal` — Cognito then returns 400 instead of redirecting to `logout_uri`.
 
 **Rule:** After any container restart (e.g. after a config change), always re-login before testing SLO. The Cognito session from before the restart is stale anyway.
 
