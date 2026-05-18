@@ -77,14 +77,28 @@ The IdP will be deployed at `https://{idp_subdomain}.{domain_name}` (default sub
 
 ### 2. Add test users
 
-Edit `cdk/config/authn/users.properties`. This is the file Shibboleth uses for login authentication (via the Jetty JAAS `PropertyFileLoginModule`). Usernames must be email addresses that match UserInfo records in the TrialPro backend DB.
+Adding a test user is a two-file change:
 
-Format: `email: password,role`
+1. **`cdk/config/authn/users.properties`** — credentials for login (Jetty JAAS `PropertyFileLoginModule`).
+   Format: `email: password,role`
 
-```
-john@unc-sim.edu: 1234,user
-jane@unc-sim.edu: 1234,user
-```
+   ```
+   john@unc-sim.edu: 1234,user
+   jane@unc-sim.edu: 1234,user
+   ```
+
+2. **`cdk/config/attribute-resolver.xml`** — email → UPN mapping in the `upn` AttributeDefinition.
+   The UPN is a stable per-user ID used as the SAML NameID, so federated identity in
+   Cognito (`custom:externalUserId`) and SLO session lookup survive email renames.
+
+   ```xml
+   <ad:ValueMap>
+       <ad:ReturnValue>unc-100006</ad:ReturnValue>
+       <ad:SourceValue>newuser@unc-sim\.edu</ad:SourceValue>
+   </ad:ValueMap>
+   ```
+
+   `SourceValue` is a Java regex with full-string match — escape literal dots as `\.`.
 
 > **Note:** `cdk/config/users.htpasswd` is used by nginx for unrelated HTTP basic auth paths and has **no effect** on who can log in via the Shibboleth login form. Editing it will not add or remove SSO test users.
 
@@ -177,12 +191,17 @@ nginx -t
 **To add or remove a test user:**
 
 ```bash
-# 1. Edit cdk/config/authn/users.properties
-#    Format: email: password,role
-#    e.g.  newuser@unc-sim.edu: 1234,user
+# 1a. Edit cdk/config/authn/users.properties — add credentials
+#     Format: email: password,role
+#     e.g.  newuser@unc-sim.edu: 1234,user
 
-# 2. Upload to S3
+# 1b. Edit cdk/config/attribute-resolver.xml — add the email -> UPN mapping
+#     inside the `upn` AttributeDefinition (see Setup step 2 for the format).
+#     Skipping this means NameID is empty and Cognito federation fails.
+
+# 2. Upload both files to S3
 aws s3 cp cdk/config/authn/users.properties s3://sso-sim-shibboleth-config-623586450996/config/authn/users.properties
+aws s3 cp cdk/config/attribute-resolver.xml  s3://sso-sim-shibboleth-config-623586450996/config/attribute-resolver.xml
 
 # 3. Connect to the EC2 and apply
 aws ssm start-session --target <InstanceId>
@@ -257,7 +276,7 @@ SSO-sim/
         │   ├── password-authn-config.xml  # Configures Shibboleth to use JAAS for password auth
         │   ├── jaas.config                # Points JAAS to users.properties for login
         │   └── users.properties           # ⬅ Test user accounts — format: email: password,role
-        ├── attribute-resolver.xml   # Defines email attribute from authenticated username
+        ├── attribute-resolver.xml   # Defines email (from auth username) + upn (stable per-user ID for NameID)
         ├── attribute-filter.xml     # Releases email to Cognito SP
         ├── cognito-sp-metadata.xml  # Cognito SP metadata (entity ID + ACS URL)
         ├── metadata-providers.xml   # Registers Cognito as Service Provider
@@ -284,6 +303,7 @@ SSO-sim/
 | SLO: Shibboleth returns 400 on LogoutRequest | Cognito signing cert missing from `cognito-sp-metadata.xml` — retrieve with `aws cognito-idp get-signing-certificate` and add as `KeyDescriptor use="signing"` |
 | SLO: Cognito returns 400 at `/saml2/logout?SAMLResponse=...` | SAMLResponse status is `UnknownPrincipal` (secondary index empty) or LogoutResponse was sent via HTTP-Redirect instead of HTTP-POST. Check: (1) `global.xml` defines `shibboleth.ServerSideStorage` and `idp.properties` sets `idp.session.StorageService = shibboleth.ServerSideStorage`; (2) `SingleLogoutService` binding in `cognito-sp-metadata.xml` is `HTTP-POST`; (3) container was restarted after login — re-login and retry |
 | SLO: Cognito receives LogoutResponse but doesn't redirect to `logout_uri` | Cognito has a stale Shibboleth signing cert cached — run `update-identity-provider` with the `MetadataURL` to force a re-fetch (see SLO section above) |
+| Login: Shibboleth returns 4xx / "MessageReplay" or "InvalidSignature" on AuthnRequest | Cognito is not signing AuthnRequests but SP metadata declares `AuthnRequestsSigned="true"`. In the Cognito console, edit the SAML IdP and enable **Sign SAML requests**. Or via API: `aws cognito-idp update-identity-provider --provider-details RequestSigningAlgorithm=rsa-sha256,...` |
 | SLO: `logout_uri` not redirected | Ensure `logout_uri` is listed exactly in the App Client's Allowed sign-out URLs |
 
 ---
@@ -304,14 +324,14 @@ SSO-sim/
 | **IdP-initiated SAML sign-in** | Leave as "Require SP-initiated SAML assertions - Recommended" |
 | **Metadata document source** | Select **Metadata document endpoint URL** |
 | **Metadata document** | Value of the `IdpMetadataUrl` stack output, e.g. `https://ssosim-qa.trialpro.ai/idp/shibboleth` |
-| **SAML signing and encryption** | Leave unchecked |
+| **SAML signing and encryption** | Check **Sign SAML requests** (required — `cognito-sp-metadata.xml` advertises `AuthnRequestsSigned="true"`, so Shibboleth rejects unsigned AuthnRequests). Leave encryption boxes unchecked. |
 
 ### Step 2 — Map attributes
 
 | User pool attribute | SAML attribute |
 |---|---|
 | `email` | `email` |
-| `custom:externalUserId` | `NAMEID` |
+| `custom:externalUserId` | `NAMEID` (the user's UPN — stable across email renames) |
 
 Click **Add identity provider**.
 

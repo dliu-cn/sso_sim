@@ -9,16 +9,57 @@
                         urn:mace:shibboleth:2.0:attribute:encoder http://shibboleth.net/schema/idp/shibboleth-attribute-encoder.xsd">
 
     <!--
-        Email attribute: the authenticated username (from htpasswd) is used as-is.
-        Test users in users.htpasswd must have email addresses as usernames,
-        e.g.:  user1@example.com:$2y$10$...
-        These email values must match UserInfo records in the backend DB.
+        Email attribute: the authenticated username from users.properties is used as-is.
+        Test users in cdk/config/authn/users.properties must have email addresses as
+        usernames. These email values must match UserInfo records in the backend DB.
     -->
     <AttributeDefinition id="email" xsi:type="ad:PrincipalName">
         <AttributeEncoder xsi:type="enc:SAML2String"
             name="email"
             friendlyName="email"
             encodeType="false" />
+    </AttributeDefinition>
+
+    <!--
+        UPN attribute: stable per-user identifier that does not change if the user's
+        email is reassigned (rename, marriage, etc). Used as the SAML NameID (see
+        saml-nameid.xml) so the SLO secondary index is keyed on a value that survives
+        email changes, and so Cognito's custom:externalUserId stays stable per user.
+
+        Maintained as an inline email -> UPN map. To add a new test user:
+          1. Add an entry to cdk/config/authn/users.properties
+          2. Add a matching <ValueMap> below
+        SourceValue is a Java regex with full-string match; escape literal dots.
+    -->
+    <AttributeDefinition id="upn" xsi:type="ad:Mapped">
+        <Dependency ref="email" />
+        <!-- AttributeEncoder MUST precede ValueMap children — the ad:Mapped schema
+             sequence is Dependency/Display*/AttributeEncoder, then DefaultValue,
+             then ValueMaps. Once ValueMap starts, only more ValueMaps are allowed. -->
+        <AttributeEncoder xsi:type="enc:SAML2String"
+            name="upn"
+            friendlyName="upn"
+            encodeType="false" />
+        <ad:ValueMap>
+            <ad:ReturnValue>unc-100001</ad:ReturnValue>
+            <ad:SourceValue>john@unc-sim\.edu</ad:SourceValue>
+        </ad:ValueMap>
+        <ad:ValueMap>
+            <ad:ReturnValue>unc-100002</ad:ReturnValue>
+            <ad:SourceValue>jane@unc-sim\.edu</ad:SourceValue>
+        </ad:ValueMap>
+        <ad:ValueMap>
+            <ad:ReturnValue>unc-100003</ad:ReturnValue>
+            <ad:SourceValue>bob@unc-sim\.edu</ad:SourceValue>
+        </ad:ValueMap>
+        <ad:ValueMap>
+            <ad:ReturnValue>unc-100004</ad:ReturnValue>
+            <ad:SourceValue>eric@unc-sim\.edu</ad:SourceValue>
+        </ad:ValueMap>
+        <ad:ValueMap>
+            <ad:ReturnValue>unc-100005</ad:ReturnValue>
+            <ad:SourceValue>mike@unc-sim\.edu</ad:SourceValue>
+        </ad:ValueMap>
     </AttributeDefinition>
 
 </AttributeResolver>

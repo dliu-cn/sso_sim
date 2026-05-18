@@ -11,17 +11,23 @@
        default-init-method="initialize"
        default-destroy-method="destroy">
 
-    <!-- Emit the user's email address as the NameID using persistent format.
-         Cognito maps NameID to userName which has a 128-char limit;
-         the default transient generator seals a UUID producing ~168 chars.
-         Format must be persistent: Cognito always sends persistent format in LogoutRequests,
-         and Shibboleth's SLO secondary index key includes the format, so a mismatch
-         (emailAddress in assertion vs persistent in LogoutRequest) causes SessionNotFound. -->
+    <!-- Emit the user's UPN as the NameID using persistent format.
+         UPN is a stable per-user identifier (see attribute-resolver.xml) that does
+         not change if the user's email is reassigned, so federated identity in
+         Cognito (custom:externalUserId) and the SLO secondary index both survive
+         email renames.
+
+         Cognito maps NameID to userName which has a 128-char limit; the default
+         transient generator seals a UUID producing ~168 chars, so we override.
+
+         Format must be persistent: Cognito always sends persistent format in
+         LogoutRequests, and Shibboleth's SLO secondary index key includes the
+         format — any mismatch causes SessionNotFound. -->
     <util:list id="shibboleth.SAML2NameIDGenerators">
         <bean parent="shibboleth.SAML2AttributeSourcedGenerator"
             p:omitQualifiers="true"
             p:format="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"
-            p:attributeSourceIds="#{ {'email'} }" />
+            p:attributeSourceIds="#{ {'upn'} }" />
         <ref bean="shibboleth.SAML2TransientGenerator" />
     </util:list>
 

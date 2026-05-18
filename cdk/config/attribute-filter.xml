@@ -4,10 +4,13 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="urn:mace:shibboleth:2.0:afp http://shibboleth.net/schema/idp/shibboleth-afp.xsd">
 
-    <!-- Release email to all SPs (single-SP test IdP). -->
-    <AttributeFilterPolicy id="ReleaseEmail">
+    <!-- Release email and upn to all SPs (single-SP test IdP).
+         upn must be released for SAML2AttributeSourcedGenerator in saml-nameid.xml
+         to find it — that generator reads from the *filtered* attribute set. -->
+    <AttributeFilterPolicy id="ReleaseAttributes">
         <PolicyRequirementRule xsi:type="ANY" />
         <AttributeRule attributeID="email" permitAny="true" />
+        <AttributeRule attributeID="upn" permitAny="true" />
     </AttributeFilterPolicy>
 
 </AttributeFilterPolicyGroup>

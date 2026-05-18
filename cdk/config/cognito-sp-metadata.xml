@@ -8,11 +8,15 @@
     entityID="__COGNITO_SP_ENTITY_ID__">
 
     <md:SPSSODescriptor
-        AuthnRequestsSigned="false"
+        AuthnRequestsSigned="true"
         WantAssertionsSigned="false"
         protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
 
-        <!-- Cognito SP signing certificate — used to verify signed LogoutRequests from Cognito -->
+        <!-- Cognito SP signing certificate — used to verify signed AuthnRequests
+             and LogoutRequests from Cognito. AuthnRequestsSigned="true" above tells
+             Shibboleth to require+verify the signature; the cert below is used for
+             verification. Cognito uses the same user-pool signing cert for both
+             AuthnRequest and LogoutRequest signing. -->
         <md:KeyDescriptor use="signing">
             <ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
                 <ds:X509Data>
