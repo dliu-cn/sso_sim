@@ -11,6 +11,9 @@
         <PolicyRequirementRule xsi:type="ANY" />
         <AttributeRule attributeID="email" permitAny="true" />
         <AttributeRule attributeID="upn" permitAny="true" />
+        <AttributeRule attributeID="organizationname" permitAny="true" />
+        <AttributeRule attributeID="givenname" permitAny="true" />
+        <AttributeRule attributeID="surname" permitAny="true" />
     </AttributeFilterPolicy>
 
 </AttributeFilterPolicyGroup>

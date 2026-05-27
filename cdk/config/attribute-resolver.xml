@@ -3,9 +3,11 @@
     xmlns="urn:mace:shibboleth:2.0:resolver"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns:ad="urn:mace:shibboleth:2.0:resolver:ad"
+    xmlns:dc="urn:mace:shibboleth:2.0:resolver:dc"
     xmlns:enc="urn:mace:shibboleth:2.0:attribute:encoder"
     xsi:schemaLocation="urn:mace:shibboleth:2.0:resolver http://shibboleth.net/schema/idp/shibboleth-attribute-resolver.xsd
                         urn:mace:shibboleth:2.0:resolver:ad http://shibboleth.net/schema/idp/shibboleth-attribute-resolver-ad.xsd
+                        urn:mace:shibboleth:2.0:resolver:dc http://shibboleth.net/schema/idp/shibboleth-attribute-resolver-dc.xsd
                         urn:mace:shibboleth:2.0:attribute:encoder http://shibboleth.net/schema/idp/shibboleth-attribute-encoder.xsd">
 
     <!--
@@ -21,45 +23,102 @@
     </AttributeDefinition>
 
     <!--
-        UPN attribute: stable per-user identifier that does not change if the user's
-        email is reassigned (rename, marriage, etc). Used as the SAML NameID (see
-        saml-nameid.xml) so the SLO secondary index is keyed on a value that survives
-        email changes, and so Cognito's custom:externalUserId stays stable per user.
+        Per-user profile: each ValueMap encodes "upn,givenname,surname" for one
+        user. To add or edit a user, change ONE ReturnValue below.
 
-        Maintained as an inline email -> UPN map. To add a new test user:
-          1. Add an entry to cdk/config/authn/users.properties
-          2. Add a matching <ValueMap> below
+        - upn (required): stable per-user identifier. Used as the SAML NameID
+          (see saml-nameid.xml) so the SLO secondary index is keyed on a value
+          that survives email changes, and so Cognito's custom:externalUserId
+          stays stable per user.
+        - givenname / surname (optional): leave empty (e.g. "unc-100008,,") to
+          omit those SAML attributes for that user.
+
+        The userprofile attribute itself is NOT released to SPs — it's split
+        into separate `upn`, `givenname`, `surname` attributes by the
+        ad:RegexSplit definitions below.
+
         SourceValue is a Java regex with full-string match; escape literal dots.
     -->
-    <AttributeDefinition id="upn" xsi:type="ad:Mapped">
+    <AttributeDefinition id="userprofile" xsi:type="ad:Mapped">
         <Dependency ref="email" />
-        <!-- AttributeEncoder MUST precede ValueMap children — the ad:Mapped schema
-             sequence is Dependency/Display*/AttributeEncoder, then DefaultValue,
-             then ValueMaps. Once ValueMap starts, only more ValueMaps are allowed. -->
+        <ad:ValueMap>
+            <ad:ReturnValue>unc-100001,John,Smith</ad:ReturnValue>
+            <ad:SourceValue>john@unc-sim\.edu</ad:SourceValue>
+        </ad:ValueMap>
+        <ad:ValueMap>
+            <ad:ReturnValue>unc-100002,Jane,Doe</ad:ReturnValue>
+            <ad:SourceValue>jane@unc-sim\.edu</ad:SourceValue>
+        </ad:ValueMap>
+        <ad:ValueMap>
+            <ad:ReturnValue>unc-100003,Robert,Johnson</ad:ReturnValue>
+            <ad:SourceValue>robert@unc-sim\.edu</ad:SourceValue>
+        </ad:ValueMap>
+        <ad:ValueMap>
+            <ad:ReturnValue>unc-100004,Eric,Williams</ad:ReturnValue>
+            <ad:SourceValue>eric@unc-sim\.edu</ad:SourceValue>
+        </ad:ValueMap>
+        <ad:ValueMap>
+            <ad:ReturnValue>unc-100005,Mike,Brown</ad:ReturnValue>
+            <ad:SourceValue>mike@unc-sim\.edu</ad:SourceValue>
+        </ad:ValueMap>
+        <ad:ValueMap>
+            <ad:ReturnValue>unc-100006,,</ad:ReturnValue>
+            <ad:SourceValue>dl_j10@yahoo\.com</ad:SourceValue>
+        </ad:ValueMap>
+        <ad:ValueMap>
+            <ad:ReturnValue>unc-100007,,</ad:ReturnValue>
+            <ad:SourceValue>dl_j20@yahoo\.com</ad:SourceValue>
+        </ad:ValueMap>
+        <ad:ValueMap>
+            <ad:ReturnValue>unc-100008,,</ad:ReturnValue>
+            <ad:SourceValue>dl_j35@yahoo\.com</ad:SourceValue>
+        </ad:ValueMap>
+    </AttributeDefinition>
+
+    <AttributeDefinition id="upn" xsi:type="ad:RegexSplit" regex="^([^,]+),.*$">
+        <Dependency ref="userprofile" />
         <AttributeEncoder xsi:type="enc:SAML2String"
             name="upn"
             friendlyName="upn"
             encodeType="false" />
-        <ad:ValueMap>
-            <ad:ReturnValue>unc-100001</ad:ReturnValue>
-            <ad:SourceValue>john@unc-sim\.edu</ad:SourceValue>
-        </ad:ValueMap>
-        <ad:ValueMap>
-            <ad:ReturnValue>unc-100002</ad:ReturnValue>
-            <ad:SourceValue>jane@unc-sim\.edu</ad:SourceValue>
-        </ad:ValueMap>
-        <ad:ValueMap>
-            <ad:ReturnValue>unc-100003</ad:ReturnValue>
-            <ad:SourceValue>bob@unc-sim\.edu</ad:SourceValue>
-        </ad:ValueMap>
-        <ad:ValueMap>
-            <ad:ReturnValue>unc-100004</ad:ReturnValue>
-            <ad:SourceValue>eric@unc-sim\.edu</ad:SourceValue>
-        </ad:ValueMap>
-        <ad:ValueMap>
-            <ad:ReturnValue>unc-100005</ad:ReturnValue>
-            <ad:SourceValue>mike@unc-sim\.edu</ad:SourceValue>
-        </ad:ValueMap>
     </AttributeDefinition>
+
+    <!-- givenname/surname: the regex fails (no value emitted) when the
+         corresponding field in userprofile is empty, so the SAML attribute is
+         simply omitted from the assertion for users without a name. -->
+    <AttributeDefinition id="givenname" xsi:type="ad:RegexSplit" regex="^[^,]*,([^,]+),.*$">
+        <Dependency ref="userprofile" />
+        <AttributeEncoder xsi:type="enc:SAML2String"
+            name="givenname"
+            friendlyName="givenname"
+            encodeType="false" />
+    </AttributeDefinition>
+
+    <AttributeDefinition id="surname" xsi:type="ad:RegexSplit" regex="^[^,]*,[^,]*,(.+)$">
+        <Dependency ref="userprofile" />
+        <AttributeEncoder xsi:type="enc:SAML2String"
+            name="surname"
+            friendlyName="surname"
+            encodeType="false" />
+    </AttributeDefinition>
+
+    <!--
+        organizationname: static value released to all users. Identifies the
+        institution behind this IdP for SPs that key off org name rather than
+        the IdP entityID.
+    -->
+    <AttributeDefinition id="organizationname" xsi:type="ad:Simple" sourceAttributeID="organizationname">
+        <Dependency ref="staticAttributes" />
+        <AttributeEncoder xsi:type="enc:SAML2String"
+            name="organizationname"
+            friendlyName="organizationname"
+            encodeType="false" />
+    </AttributeDefinition>
+
+    <DataConnector id="staticAttributes" xsi:type="dc:Static">
+        <dc:Attribute id="organizationname">
+            <dc:Value>UNC Simulation</dc:Value>
+        </dc:Attribute>
+    </DataConnector>
 
 </AttributeResolver>
