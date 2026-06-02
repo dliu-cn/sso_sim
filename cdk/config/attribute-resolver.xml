@@ -62,15 +62,15 @@
             <ad:SourceValue>mike@unc-sim\.edu</ad:SourceValue>
         </ad:ValueMap>
         <ad:ValueMap>
-            <ad:ReturnValue>unc-100006,,</ad:ReturnValue>
+            <ad:ReturnValue>unc-100006,Test1,Yahoo</ad:ReturnValue>
             <ad:SourceValue>dl_j10@yahoo\.com</ad:SourceValue>
         </ad:ValueMap>
         <ad:ValueMap>
-            <ad:ReturnValue>unc-100007,,</ad:ReturnValue>
+            <ad:ReturnValue>unc-100007,Test2,Yahoo</ad:ReturnValue>
             <ad:SourceValue>dl_j20@yahoo\.com</ad:SourceValue>
         </ad:ValueMap>
         <ad:ValueMap>
-            <ad:ReturnValue>unc-100008,,</ad:ReturnValue>
+            <ad:ReturnValue>unc-100008,Test3,Yahoo</ad:ReturnValue>
             <ad:SourceValue>dl_j35@yahoo\.com</ad:SourceValue>
         </ad:ValueMap>
     </AttributeDefinition>
